@@ -99,9 +99,9 @@ templ ExpirationEmail(products []ExpiringProduct) {
 
 func urgencyClass(days int) string {
 	switch {
-	case days <= 3:
+	case days <= 7:
 		return "critical"
-	case days <= 14:
+	case days <= 30:
 		return "warning"
 	default:
 		return "ok"
