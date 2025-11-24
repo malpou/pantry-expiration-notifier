@@ -29,11 +29,12 @@ type Config struct {
 }
 
 type SMTPConfig struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	From     string
+	Host          string
+	Port          int
+	Username      string
+	Password      string
+	From          string
+	MessageStream string
 }
 
 type Product struct {
@@ -157,11 +158,12 @@ func loadConfig() (Config, error) {
 		RecipientEmails: emails,
 		SACredentials:   saCreds,
 		SMTP: SMTPConfig{
-			Host:     mustEnv("SMTP_HOST"),
-			Port:     port,
-			Username: mustEnv("SMTP_USERNAME"),
-			Password: mustEnv("SMTP_PASSWORD"),
-			From:     mustEnv("SMTP_FROM"),
+			Host:          mustEnv("SMTP_HOST"),
+			Port:          port,
+			Username:      mustEnv("SMTP_USERNAME"),
+			Password:      mustEnv("SMTP_PASSWORD"),
+			From:          mustEnv("SMTP_FROM"),
+			MessageStream: getEnv("SMTP_MESSAGE_STREAM", ""),
 		},
 	}, nil
 }
@@ -203,7 +205,7 @@ func sendEmail(cfg Config, products []ExpiringProduct) error {
 	subject := fmt.Sprintf("=?UTF-8?B?%s?=",
 		base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "🥫 %d varer nærmer sig udløb", len(products))))
 
-	msg := buildMIMEMessage(cfg.SMTP.From, cfg.RecipientEmails, subject, body.String())
+	msg := buildMIMEMessage(cfg.SMTP.From, cfg.RecipientEmails, subject, body.String(), cfg.SMTP.MessageStream)
 
 	auth := smtp.PlainAuth("", cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.Host)
 	addr := fmt.Sprintf("%s:%d", cfg.SMTP.Host, cfg.SMTP.Port)
@@ -211,13 +213,16 @@ func sendEmail(cfg Config, products []ExpiringProduct) error {
 	return smtp.SendMail(addr, auth, cfg.SMTP.From, cfg.RecipientEmails, msg)
 }
 
-func buildMIMEMessage(from string, to []string, subject, htmlBody string) []byte {
+func buildMIMEMessage(from string, to []string, subject, htmlBody, messageStream string) []byte {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("From: %s\r\n", from))
 	buf.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	buf.WriteString("MIME-Version: 1.0\r\n")
 	buf.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
+	if messageStream != "" {
+		buf.WriteString(fmt.Sprintf("X-PM-Message-Stream: %s\r\n", messageStream))
+	}
 	buf.WriteString("\r\n")
 	buf.WriteString(htmlBody)
 	return buf.Bytes()
