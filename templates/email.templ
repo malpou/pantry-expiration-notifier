@@ -1,0 +1,109 @@
+package templates
+
+import "fmt"
+
+type ExpiringProduct struct {
+	Name      string
+	Packaging string
+	Quantity  int
+	DaysUntil int
+	Threshold int
+}
+
+templ ExpirationEmail(products []ExpiringProduct) {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<meta charset="UTF-8"/>
+			<style>
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+				line-height: 1.6;
+				color: #333;
+				max-width: 600px;
+				margin: 0 auto;
+				padding: 20px;
+			}
+			h1 {
+				color: #d35400;
+				border-bottom: 2px solid #e74c3c;
+				padding-bottom: 10px;
+			}
+			.product {
+				background: #f9f9f9;
+				border-left: 4px solid #e74c3c;
+				padding: 12px 16px;
+				margin: 12px 0;
+				border-radius: 0 8px 8px 0;
+			}
+			.product.warning { border-left-color: #f39c12; }
+			.product.ok { border-left-color: #27ae60; }
+			.product-name {
+				font-weight: 600;
+				font-size: 1.1em;
+			}
+			.days {
+				display: inline-block;
+				padding: 2px 8px;
+				border-radius: 12px;
+				font-size: 0.85em;
+				font-weight: 500;
+			}
+			.days.critical { background: #e74c3c; color: white; }
+			.days.warning { background: #f39c12; color: white; }
+			.days.ok { background: #27ae60; color: white; }
+			.details {
+				color: #666;
+				font-size: 0.9em;
+				margin-top: 4px;
+			}
+			.footer {
+				margin-top: 30px;
+				padding-top: 20px;
+				border-top: 1px solid #eee;
+				color: #888;
+				font-size: 0.85em;
+			}
+		</style>
+		</head>
+		<body>
+			<h1>🥫 Varer der snart udløber</h1>
+			<p>Følgende varer i dit spisekammer nærmer sig deres udløbsdato:</p>
+			for _, p := range products {
+				<div class={ "product", urgencyClass(p.DaysUntil) }>
+					<div class="product-name">
+						{ p.Name }
+						<span class={ "days", urgencyClass(p.DaysUntil) }>
+							if p.DaysUntil < 0 {
+								Udløbet!
+							} else if p.DaysUntil == 0 {
+								Udløber i dag
+							} else if p.DaysUntil == 1 {
+								1 dag tilbage
+							} else {
+								{ fmt.Sprintf("%d dage tilbage", p.DaysUntil) }
+							}
+						</span>
+					</div>
+					<div class="details">
+						{ fmt.Sprintf("%d× %s", p.Quantity, p.Packaging) }
+					</div>
+				</div>
+			}
+			<div class="footer">
+				<p>Denne email er automatisk genereret af dit spisekammer-system.</p>
+			</div>
+		</body>
+	</html>
+}
+
+func urgencyClass(days int) string {
+	switch {
+	case days <= 3:
+		return "critical"
+	case days <= 14:
+		return "warning"
+	default:
+		return "ok"
+	}
+}

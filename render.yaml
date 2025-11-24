@@ -1,0 +1,26 @@
+services:
+  - type: cron
+    name: pantry-expiration-notifier
+    runtime: go
+    buildCommand: go install github.com/a-h/templ/cmd/templ@latest && templ generate && go build -o app .
+    startCommand: ./app
+    schedule: "0 7 * * 0"
+    envVars:
+      - key: GOOGLE_SA_CREDENTIALS
+        sync: false
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: SHEET_NAME
+        value: Sheet1
+      - key: RECIPIENT_EMAILS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
