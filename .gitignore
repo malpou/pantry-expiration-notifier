@@ -1,2 +1,4 @@
 *_templ.go
 sa-key.json
+.env
+pantry-expiration-notifier.exe

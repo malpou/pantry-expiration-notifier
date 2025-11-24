@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net/smtp"
 	"os"
 	"slices"
@@ -13,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/malpou/pantry-expiration-notifier/templates"
+	"go.uber.org/zap"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
@@ -53,28 +54,37 @@ type ExpiringProduct struct {
 }
 
 func main() {
-	cfg, err := loadConfig()
+	logger, err := zap.NewProduction()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
+	}
+	defer logger.Sync()
+
+	// Load .env file as fallback if environment variables aren't set
+	_ = godotenv.Load()
+
+	cfg, err := loadConfig(logger)
+	if err != nil {
+		logger.Fatal("Failed to load config", zap.Error(err))
 	}
 
 	ctx := context.Background()
 
 	srv, err := sheets.NewService(ctx, option.WithCredentialsJSON(cfg.SACredentials))
 	if err != nil {
-		log.Fatalf("Unable to create Sheets client: %v", err)
+		logger.Fatal("Unable to create Sheets client", zap.Error(err))
 	}
 
 	resp, err := srv.Spreadsheets.Values.Get(cfg.SpreadsheetID, cfg.SheetName+"!A:E").Do()
 	if err != nil {
-		log.Fatalf("Unable to read sheet: %v", err)
+		logger.Fatal("Unable to read sheet", zap.Error(err))
 	}
 
 	products := parseProducts(resp.Values)
 
 	loc, err := time.LoadLocation("Europe/Copenhagen")
 	if err != nil {
-		log.Fatalf("Failed to load timezone: %v", err)
+		logger.Fatal("Failed to load timezone", zap.Error(err))
 	}
 	today := time.Now().In(loc).Truncate(24 * time.Hour)
 
@@ -103,14 +113,16 @@ func main() {
 	}
 
 	if len(expiring) == 0 {
-		log.Println("No notifications to send")
+		logger.Info("No notifications to send")
 		return
 	}
 
 	if err := sendEmail(cfg, expiring); err != nil {
-		log.Fatalf("Failed to send email: %v", err)
+		logger.Fatal("Failed to send email", zap.Error(err))
 	}
-	log.Printf("Sent notification for %d products to %d recipients\n", len(expiring), len(cfg.RecipientEmails))
+	logger.Info("Sent notification",
+		zap.Int("products", len(expiring)),
+		zap.Int("recipients", len(cfg.RecipientEmails)))
 
 	batchReq := &sheets.BatchUpdateValuesRequest{
 		ValueInputOption: "RAW",
@@ -120,18 +132,18 @@ func main() {
 		batchReq.Data[i] = &updates[i]
 	}
 	if _, err = srv.Spreadsheets.Values.BatchUpdate(cfg.SpreadsheetID, batchReq).Do(); err != nil {
-		log.Fatalf("Unable to update sheet: %v", err)
+		logger.Fatal("Unable to update sheet", zap.Error(err))
 	}
-	log.Println("Sheet updated successfully")
+	logger.Info("Sheet updated successfully")
 }
 
-func loadConfig() (Config, error) {
+func loadConfig(logger *zap.Logger) (Config, error) {
 	port, err := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 	if err != nil {
 		return Config{}, fmt.Errorf("invalid SMTP_PORT: %w", err)
 	}
 
-	saCredsRaw := mustEnv("GOOGLE_SA_CREDENTIALS")
+	saCredsRaw := mustEnv("GOOGLE_SA_CREDENTIALS", logger)
 	var saCreds []byte
 	if decoded, err := base64.StdEncoding.DecodeString(saCredsRaw); err == nil {
 		saCreds = decoded
@@ -140,7 +152,7 @@ func loadConfig() (Config, error) {
 	}
 
 	// Parse comma-separated emails
-	emailsRaw := mustEnv("RECIPIENT_EMAILS")
+	emailsRaw := mustEnv("RECIPIENT_EMAILS", logger)
 	var emails []string
 	for email := range strings.SplitSeq(emailsRaw, ",") {
 		email = strings.TrimSpace(email)
@@ -153,25 +165,25 @@ func loadConfig() (Config, error) {
 	}
 
 	return Config{
-		SpreadsheetID:   mustEnv("SPREADSHEET_ID"),
+		SpreadsheetID:   mustEnv("SPREADSHEET_ID", logger),
 		SheetName:       getEnv("SHEET_NAME", "Sheet1"),
 		RecipientEmails: emails,
 		SACredentials:   saCreds,
 		SMTP: SMTPConfig{
-			Host:          mustEnv("SMTP_HOST"),
+			Host:          mustEnv("SMTP_HOST", logger),
 			Port:          port,
-			Username:      mustEnv("SMTP_USERNAME"),
-			Password:      mustEnv("SMTP_PASSWORD"),
-			From:          mustEnv("SMTP_FROM"),
+			Username:      mustEnv("SMTP_USERNAME", logger),
+			Password:      mustEnv("SMTP_PASSWORD", logger),
+			From:          mustEnv("SMTP_FROM", logger),
 			MessageStream: getEnv("SMTP_MESSAGE_STREAM", ""),
 		},
 	}, nil
 }
 
-func mustEnv(key string) string {
+func mustEnv(key string, logger *zap.Logger) string {
 	val := os.Getenv(key)
 	if val == "" {
-		log.Fatalf("Required environment variable %s is not set", key)
+		logger.Fatal("Required environment variable is not set", zap.String("variable", key))
 	}
 	return val
 }
