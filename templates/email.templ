@@ -1,23 +1,13 @@
 package templates
 
-import "fmt"
+import (
+	"fmt"
 
-type ExpiringProduct struct {
-	Name      string
-	Packaging string
-	Location  string
-	Quantity  int
-	DaysUntil int
-	Threshold int
-}
+	"github.com/malpou/pantry-expiration-notifier/data"
+	"github.com/malpou/pantry-expiration-notifier/i18n"
+)
 
-type Translations map[string]string
-
-func (t Translations) Get(key string) string {
-	return t[key]
-}
-
-templ ExpirationEmail(products []ExpiringProduct, translations Translations) {
+templ ExpirationEmail(products []data.ExpiringProduct, translations i18n.Translations) {
 	<!DOCTYPE html>
 	<html>
 		<head>
