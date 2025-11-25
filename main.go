@@ -19,14 +19,13 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-var notificationDays = []int{90, 60, 30, 14, 7, 3, 1}
-
 type Config struct {
-	SpreadsheetID   string
-	SheetName       string
-	RecipientEmails []string
-	SMTP            SMTPConfig
-	SACredentials   []byte
+	SpreadsheetID    string
+	SheetName        string
+	RecipientEmails  []string
+	NotificationDays []int
+	SMTP             SMTPConfig
+	SACredentials    []byte
 }
 
 type SMTPConfig struct {
@@ -94,7 +93,7 @@ func main() {
 	for _, p := range products {
 		daysUntil := int(p.Expiration.Sub(today).Hours() / 24)
 
-		for _, threshold := range notificationDays {
+		for _, threshold := range cfg.NotificationDays {
 			if daysUntil <= threshold && !slices.Contains(p.SentDays, threshold) {
 				expiring = append(expiring, ExpiringProduct{
 					Product:   p,
@@ -179,11 +178,27 @@ func loadConfig(logger *zap.Logger) (Config, error) {
 		}
 	}
 
+	// Parse notification days (comma-separated integers)
+	notificationDays := []int{90, 60, 30, 14, 7, 3, 1} // default values
+	if daysRaw := getEnv("NOTIFICATION_DAYS", ""); daysRaw != "" {
+		var days []int
+		for day := range strings.SplitSeq(daysRaw, ",") {
+			day = strings.TrimSpace(day)
+			if d, err := strconv.Atoi(day); err == nil && d > 0 {
+				days = append(days, d)
+			}
+		}
+		if len(days) > 0 {
+			notificationDays = days
+		}
+	}
+
 	return Config{
-		SpreadsheetID:   mustEnv("SPREADSHEET_ID", logger),
-		SheetName:       getEnv("SHEET_NAME", "Sheet1"),
-		RecipientEmails: emails,
-		SACredentials:   saCreds,
+		SpreadsheetID:    mustEnv("SPREADSHEET_ID", logger),
+		SheetName:        getEnv("SHEET_NAME", "Sheet1"),
+		RecipientEmails:  emails,
+		NotificationDays: notificationDays,
+		SACredentials:    saCreds,
 		SMTP: SMTPConfig{
 			Host:     mustEnv("SMTP_HOST", logger),
 			Port:     port,

@@ -54,6 +54,9 @@ SHEET_NAME=data
 # Recipients (comma-separated)
 RECIPIENT_EMAILS=alice@example.com, bob@example.com, charlie@example.com
 
+# Notification thresholds in days before expiration (comma-separated)
+NOTIFICATION_DAYS=90,60,30,14,7,3,1
+
 # SMTP Configuration
 SMTP_HOST=smtp.fastmail.com
 SMTP_PORT=587
@@ -73,6 +76,7 @@ SMTP_HEADERS=X-PM-Message-Stream: outbound
 | `SPREADSHEET_ID` | Yes | Google Sheets spreadsheet ID |
 | `SHEET_NAME` | No | Sheet name (default: "Sheet1") |
 | `RECIPIENT_EMAILS` | Yes | Comma-separated list of email recipients |
+| `NOTIFICATION_DAYS` | No | Comma-separated list of notification thresholds in days before expiration (default: "90,60,30,14,7,3,1"). Example: "30,7,1" for notifications at 30, 7, and 1 day before expiration |
 | `SMTP_HOST` | Yes | SMTP server hostname |
 | `SMTP_PORT` | No | SMTP server port (default: 587) |
 | `SMTP_USERNAME` | Yes | SMTP authentication username |
@@ -142,7 +146,7 @@ The service will automatically run according to your schedule and send notificat
 
 ## Notification Thresholds
 
-The service sends notifications at the following thresholds before expiration:
+By default, the service sends notifications at the following thresholds before expiration:
 
 - 90 days
 - 60 days
@@ -151,6 +155,10 @@ The service sends notifications at the following thresholds before expiration:
 - 7 days
 - 3 days
 - 1 day
+
+You can customize these thresholds using the `NOTIFICATION_DAYS` environment variable. For example:
+- `NOTIFICATION_DAYS=30,7,1` - Only notify at 30, 7, and 1 day before expiration
+- `NOTIFICATION_DAYS=14,7,3,1,0` - Notify at 14, 7, 3, 1 days before and on expiration day
 
 Each threshold triggers only once per product to avoid spam.
 
