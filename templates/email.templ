@@ -10,7 +10,13 @@ type ExpiringProduct struct {
 	Threshold int
 }
 
-templ ExpirationEmail(products []ExpiringProduct) {
+type Translations map[string]string
+
+func (t Translations) Get(key string) string {
+	return t[key]
+}
+
+templ ExpirationEmail(products []ExpiringProduct, translations Translations) {
 	<!DOCTYPE html>
 	<html>
 		<head>
@@ -67,21 +73,21 @@ templ ExpirationEmail(products []ExpiringProduct) {
 		</style>
 		</head>
 		<body>
-			<h1>🥫 Varer der snart udløber</h1>
-			<p>Følgende varer i dit spisekammer nærmer sig deres udløbsdato:</p>
+			<h1>{ translations.Get("email_title") }</h1>
+			<p>{ translations.Get("email_intro") }</p>
 			for _, p := range products {
 				<div class={ "product", urgencyClass(p.DaysUntil) }>
 					<div class="product-name">
 						{ p.Name }
 						<span class={ "days", urgencyClass(p.DaysUntil) }>
 							if p.DaysUntil < 0 {
-								Udløbet!
+								{ translations.Get("days_expired") }
 							} else if p.DaysUntil == 0 {
-								Udløber i dag
+								{ translations.Get("days_expiring_today") }
 							} else if p.DaysUntil == 1 {
-								1 dag tilbage
+								{ translations.Get("days_one_remaining") }
 							} else {
-								{ fmt.Sprintf("%d dage tilbage", p.DaysUntil) }
+								{ fmt.Sprintf(translations.Get("days_remaining"), p.DaysUntil) }
 							}
 						</span>
 					</div>
@@ -91,7 +97,7 @@ templ ExpirationEmail(products []ExpiringProduct) {
 				</div>
 			}
 			<div class="footer">
-				<p>Denne email er automatisk genereret af dit spisekammer-system.</p>
+				<p>{ translations.Get("email_footer") }</p>
 			</div>
 		</body>
 	</html>

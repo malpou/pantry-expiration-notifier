@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/smtp"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,6 +26,8 @@ type Config struct {
 	SheetName        string
 	RecipientEmails  []string
 	NotificationDays []int
+	Language         string
+	Translations     map[string]string
 	SMTP             SMTPConfig
 	SACredentials    []byte
 }
@@ -193,11 +197,20 @@ func loadConfig(logger *zap.Logger) (Config, error) {
 		}
 	}
 
+	// Load translations
+	language := getEnv("LANGUAGE", "en")
+	translations, err := loadTranslations(language, logger)
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load translations: %w", err)
+	}
+
 	return Config{
 		SpreadsheetID:    mustEnv("SPREADSHEET_ID", logger),
 		SheetName:        getEnv("SHEET_NAME", "Sheet1"),
 		RecipientEmails:  emails,
 		NotificationDays: notificationDays,
+		Language:         language,
+		Translations:     translations,
 		SACredentials:    saCreds,
 		SMTP: SMTPConfig{
 			Host:     mustEnv("SMTP_HOST", logger),
@@ -225,6 +238,55 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+func loadTranslations(lang string, logger *zap.Logger) (map[string]string, error) {
+	// Define required translation keys
+	requiredKeys := []string{
+		"email_subject",
+		"email_title",
+		"email_intro",
+		"email_footer",
+		"days_expired",
+		"days_expiring_today",
+		"days_one_remaining",
+		"days_remaining",
+	}
+
+	// Construct path to translation file
+	translationFile := filepath.Join("i18n", lang+".json")
+
+	// Check if file exists
+	if _, err := os.Stat(translationFile); os.IsNotExist(err) {
+		return nil, fmt.Errorf("unsupported language '%s': translation file not found at %s", lang, translationFile)
+	}
+
+	// Read translation file
+	data, err := os.ReadFile(translationFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read translation file %s: %w", translationFile, err)
+	}
+
+	// Parse JSON
+	var translations map[string]string
+	if err := json.Unmarshal(data, &translations); err != nil {
+		return nil, fmt.Errorf("failed to parse translation file %s: %w", translationFile, err)
+	}
+
+	// Validate all required keys are present
+	var missingKeys []string
+	for _, key := range requiredKeys {
+		if _, ok := translations[key]; !ok {
+			missingKeys = append(missingKeys, key)
+		}
+	}
+
+	if len(missingKeys) > 0 {
+		return nil, fmt.Errorf("translation file %s is missing required keys: %s", translationFile, strings.Join(missingKeys, ", "))
+	}
+
+	logger.Info("Loaded translations", zap.String("language", lang), zap.Int("keys", len(translations)))
+	return translations, nil
+}
+
 func sendEmail(cfg Config, products []ExpiringProduct) error {
 	var body bytes.Buffer
 
@@ -239,13 +301,14 @@ func sendEmail(cfg Config, products []ExpiringProduct) error {
 		}
 	}
 
-	err := templates.ExpirationEmail(tplProducts).Render(context.Background(), &body)
+	err := templates.ExpirationEmail(tplProducts, templates.Translations(cfg.Translations)).Render(context.Background(), &body)
 	if err != nil {
 		return fmt.Errorf("render template: %w", err)
 	}
 
+	subjectText := fmt.Sprintf(cfg.Translations["email_subject"], len(products))
 	subject := fmt.Sprintf("=?UTF-8?B?%s?=",
-		base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "🥫 %d varer nærmer sig udløb", len(products))))
+		base64.StdEncoding.EncodeToString([]byte(subjectText)))
 
 	msg := buildMIMEMessage(cfg.SMTP.From, cfg.RecipientEmails, subject, body.String(), cfg.SMTP.Headers)
 

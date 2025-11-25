@@ -1,0 +1,10 @@
+{
+  "email_subject": "🥫 %d varer nærmer sig udløb",
+  "email_title": "🥫 Varer der snart udløber",
+  "email_intro": "Følgende varer i dit spisekammer nærmer sig deres udløbsdato:",
+  "email_footer": "Denne email er automatisk genereret af dit spisekammer-system.",
+  "days_expired": "Udløbet!",
+  "days_expiring_today": "Udløber i dag",
+  "days_one_remaining": "1 dag tilbage",
+  "days_remaining": "%d dage tilbage"
+}
