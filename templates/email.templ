@@ -93,7 +93,7 @@ templ ExpirationEmail(products []ExpiringProduct, translations Translations) {
 						</span>
 					</div>
 					<div class="details">
-						{ fmt.Sprintf("%d× %s", p.Quantity, p.Packaging) }
+						{ fmt.Sprintf("%d × %s", p.Quantity, p.Packaging) }
 						if p.Location != "" {
 							{ " • " }
 							{ p.Location }
