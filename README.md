@@ -60,7 +60,9 @@ SMTP_PORT=587
 SMTP_USERNAME=you@fastmail.com
 SMTP_PASSWORD=app-specific-password
 SMTP_FROM=Spisekammer <pantry@yourdomain.com>
-SMTP_MESSAGE_STREAM=outbound
+
+# Optional: Custom SMTP headers (comma-separated)
+SMTP_HEADERS=X-PM-Message-Stream: outbound
 ```
 
 ### Environment Variables
@@ -76,7 +78,7 @@ SMTP_MESSAGE_STREAM=outbound
 | `SMTP_USERNAME` | Yes | SMTP authentication username |
 | `SMTP_PASSWORD` | Yes | SMTP authentication password |
 | `SMTP_FROM` | Yes | Email sender address (supports "Name <email>" format) |
-| `SMTP_MESSAGE_STREAM` | No | Optional X-PM-Message-Stream header value (e.g., "outbound") |
+| `SMTP_HEADERS` | No | Optional custom SMTP headers (format: "Header-Name: value, Another-Header: value"). Example: "X-PM-Message-Stream: outbound" for Postmark or "X-Priority: 1, X-Mailer: MyApp" for multiple headers |
 
 ## Google Sheets Setup
 

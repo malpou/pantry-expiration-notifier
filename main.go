@@ -30,12 +30,12 @@ type Config struct {
 }
 
 type SMTPConfig struct {
-	Host          string
-	Port          int
-	Username      string
-	Password      string
-	From          string
-	MessageStream string
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
+	Headers  map[string]string
 }
 
 type Product struct {
@@ -164,18 +164,33 @@ func loadConfig(logger *zap.Logger) (Config, error) {
 		return Config{}, fmt.Errorf("RECIPIENT_EMAILS must contain at least one email")
 	}
 
+	// Parse SMTP headers in format "Header-Name: value, Another-Header: value"
+	smtpHeaders := make(map[string]string)
+	if headersRaw := getEnv("SMTP_HEADERS", ""); headersRaw != "" {
+		for pair := range strings.SplitSeq(headersRaw, ",") {
+			pair = strings.TrimSpace(pair)
+			if parts := strings.SplitN(pair, ":", 2); len(parts) == 2 {
+				headerName := strings.TrimSpace(parts[0])
+				headerValue := strings.TrimSpace(parts[1])
+				if headerName != "" && headerValue != "" {
+					smtpHeaders[headerName] = headerValue
+				}
+			}
+		}
+	}
+
 	return Config{
 		SpreadsheetID:   mustEnv("SPREADSHEET_ID", logger),
 		SheetName:       getEnv("SHEET_NAME", "Sheet1"),
 		RecipientEmails: emails,
 		SACredentials:   saCreds,
 		SMTP: SMTPConfig{
-			Host:          mustEnv("SMTP_HOST", logger),
-			Port:          port,
-			Username:      mustEnv("SMTP_USERNAME", logger),
-			Password:      mustEnv("SMTP_PASSWORD", logger),
-			From:          mustEnv("SMTP_FROM", logger),
-			MessageStream: getEnv("SMTP_MESSAGE_STREAM", ""),
+			Host:     mustEnv("SMTP_HOST", logger),
+			Port:     port,
+			Username: mustEnv("SMTP_USERNAME", logger),
+			Password: mustEnv("SMTP_PASSWORD", logger),
+			From:     mustEnv("SMTP_FROM", logger),
+			Headers:  smtpHeaders,
 		},
 	}, nil
 }
@@ -217,7 +232,7 @@ func sendEmail(cfg Config, products []ExpiringProduct) error {
 	subject := fmt.Sprintf("=?UTF-8?B?%s?=",
 		base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "🥫 %d varer nærmer sig udløb", len(products))))
 
-	msg := buildMIMEMessage(cfg.SMTP.From, cfg.RecipientEmails, subject, body.String(), cfg.SMTP.MessageStream)
+	msg := buildMIMEMessage(cfg.SMTP.From, cfg.RecipientEmails, subject, body.String(), cfg.SMTP.Headers)
 
 	auth := smtp.PlainAuth("", cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.Host)
 	addr := fmt.Sprintf("%s:%d", cfg.SMTP.Host, cfg.SMTP.Port)
@@ -225,15 +240,15 @@ func sendEmail(cfg Config, products []ExpiringProduct) error {
 	return smtp.SendMail(addr, auth, cfg.SMTP.From, cfg.RecipientEmails, msg)
 }
 
-func buildMIMEMessage(from string, to []string, subject, htmlBody, messageStream string) []byte {
+func buildMIMEMessage(from string, to []string, subject, htmlBody string, headers map[string]string) []byte {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("From: %s\r\n", from))
 	buf.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(to, ", ")))
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
 	buf.WriteString("MIME-Version: 1.0\r\n")
 	buf.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
-	if messageStream != "" {
-		buf.WriteString(fmt.Sprintf("X-PM-Message-Stream: %s\r\n", messageStream))
+	for headerName, headerValue := range headers {
+		buf.WriteString(fmt.Sprintf("%s: %s\r\n", headerName, headerValue))
 	}
 	buf.WriteString("\r\n")
 	buf.WriteString(htmlBody)
