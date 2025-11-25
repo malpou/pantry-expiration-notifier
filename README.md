@@ -92,19 +92,20 @@ SMTP_HEADERS=X-PM-Message-Stream: outbound
 
 ### Sheet Format
 
-Your spreadsheet should have the following columns (A-E):
+Your spreadsheet should have the following columns (A-F):
 
-| Column A | Column B | Column C | Column D | Column E |
-|----------|----------|----------|----------|----------|
-| Name | Packaging | Quantity | Expiration | Sent Days |
-| Tomato Sauce | Can | 5 | 2025-12-31 | 90,60 |
-| Pasta | Box | 2 | 2025-06-15 | |
+| Column A | Column B | Column C | Column D | Column E | Column F |
+|----------|----------|----------|----------|----------|----------|
+| Name | Packaging | Location | Quantity | Expiration | Sent Days |
+| Tomato Sauce | Can | Pantry | 5 | 2025-12-31 | 90,60 |
+| Pasta | Box | Kitchen Cabinet | 2 | 2025-06-15 | |
 
 - **Column A (Name)**: Product name
 - **Column B (Packaging)**: Packaging type (e.g., Can, Box, Jar)
-- **Column C (Quantity)**: Number of items
-- **Column D (Expiration)**: Expiration date in YYYY-MM-DD format
-- **Column E (Sent Days)**: Comma-separated list of notification thresholds already sent (automatically updated)
+- **Column C (Location)**: Storage location (e.g., Pantry, Fridge, Freezer)
+- **Column D (Quantity)**: Number of items
+- **Column E (Expiration)**: Expiration date in YYYY-MM-DD format
+- **Column F (Sent Days)**: Comma-separated list of notification thresholds already sent (automatically updated)
 
 ### Google Cloud Setup
 

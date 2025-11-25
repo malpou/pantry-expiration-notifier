@@ -44,6 +44,7 @@ type SMTPConfig struct {
 type Product struct {
 	Row        int
 	Name       string
+	Location   string
 	Packaging  string
 	Quantity   int
 	Expiration time.Time
@@ -78,7 +79,7 @@ func main() {
 		logger.Fatal("Unable to create Sheets client", zap.Error(err))
 	}
 
-	resp, err := srv.Spreadsheets.Values.Get(cfg.SpreadsheetID, cfg.SheetName+"!A:E").Do()
+	resp, err := srv.Spreadsheets.Values.Get(cfg.SpreadsheetID, cfg.SheetName+"!A:F").Do()
 	if err != nil {
 		logger.Fatal("Unable to read sheet", zap.Error(err))
 	}
@@ -107,7 +108,7 @@ func main() {
 
 				p.SentDays = append(p.SentDays, threshold)
 				updates = append(updates, sheets.ValueRange{
-					Range:  fmt.Sprintf("%s!E%d", cfg.SheetName, p.Row),
+					Range:  fmt.Sprintf("%s!F%d", cfg.SheetName, p.Row),
 					Values: [][]any{{formatSentDays(p.SentDays)}},
 				})
 				break
@@ -295,6 +296,7 @@ func sendEmail(cfg Config, products []ExpiringProduct) error {
 		tplProducts[i] = templates.ExpiringProduct{
 			Name:      p.Name,
 			Packaging: p.Packaging,
+			Location:  p.Location,
 			Quantity:  p.Quantity,
 			DaysUntil: p.DaysUntil,
 			Threshold: p.Threshold,
@@ -336,22 +338,23 @@ func buildMIMEMessage(from string, to []string, subject, htmlBody string, header
 func parseProducts(rows [][]any) []Product {
 	var products []Product
 	for i, row := range rows {
-		if i == 0 || len(row) < 4 {
+		if i == 0 || len(row) < 5 {
 			continue
 		}
-		qty, _ := strconv.Atoi(fmt.Sprint(row[2]))
-		exp, err := time.Parse("2006-01-02", fmt.Sprint(row[3]))
+		qty, _ := strconv.Atoi(fmt.Sprint(row[3]))
+		exp, err := time.Parse("2006-01-02", fmt.Sprint(row[4]))
 		if err != nil {
 			continue
 		}
 		var sentDays []int
-		if len(row) >= 5 && row[4] != nil {
-			sentDays = parseSentDays(fmt.Sprint(row[4]))
+		if len(row) >= 6 && row[5] != nil {
+			sentDays = parseSentDays(fmt.Sprint(row[5]))
 		}
 		products = append(products, Product{
 			Row:        i + 1,
 			Name:       fmt.Sprint(row[0]),
 			Packaging:  fmt.Sprint(row[1]),
+			Location:   fmt.Sprint(row[2]),
 			Quantity:   qty,
 			Expiration: exp,
 			SentDays:   sentDays,
