@@ -1,0 +1,10 @@
+{
+  "email_subject": "🥫 %d articles approchent de leur date d'expiration",
+  "email_title": "🥫 Articles bientôt périmés",
+  "email_intro": "Les articles suivants dans votre garde-manger approchent de leur date d'expiration :",
+  "email_footer": "Cet e-mail a été généré automatiquement par votre système de garde-manger.",
+  "days_expired": "Expiré !",
+  "days_expiring_today": "Expire aujourd'hui",
+  "days_one_remaining": "1 jour restant",
+  "days_remaining": "%d jours restants"
+}
